@@ -32,13 +32,6 @@ def main():
 def check_mentions(reddit):
     mentions = list(reddit.inbox.mentions())
     for comment in mentions:
-        # verfify that the bot has not already replied to this comment
-        try:
-            comment.refresh()  # fetches comment's replies
-            comment.replies.replace_more(limit=0)
-        except praw.exceptions.ClientException as e:
-            print(str(e))
-            return
         check(comment)
 
 # check comment for frying request
