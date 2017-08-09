@@ -14,17 +14,32 @@ def main():
                   'meirl', 'memes', 'dankmemes', 'nukedmemes',
                   'whothefuckup', 'ComedyNecrophilia']
 
+    
     # login to reddit and enter main loop
     reddit = login()
     sub = reddit.subreddit('+'.join(subreddits))
     while True:
-        # get comments
+        # check and fry username mentions
+        check_mentions(reddit)
+        
+        # get comments from subreddits
         comments = list(sub.comments())
 
         # check for frying requests
         for comment in comments:
             check(comment)
 
+def check_mentions(reddit):
+    mentions = list(reddit.inbox.mentions())
+    for comment in mentions:
+        # verfify that the bot has not already replied to this comment
+        try:
+            comment.refresh()  # fetches comment's replies
+            comment.replies.replace_more(limit=0)
+        except praw.exceptions.ClientException as e:
+            print(str(e))
+            return
+        check(comment)
 
 # check comment for frying request
 def check(comment):
