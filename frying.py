@@ -22,11 +22,11 @@ def fry(img):
     img = bulge(img, np.array([int(w), int(h)]), r, 3, 5, 1.8)
 
     # some finishing touches
-    print("Adding some finishing touches... ", end='')
+    # print("Adding some finishing touches... ", end='')
     stdout.flush()
     img = add_noise(img, 0.2)
     img = change_contrast(img, 200)
-    print("Done")
+    # print("Done")
 
     return img
 
@@ -42,7 +42,7 @@ def fry_url(url, n):
     for i in range(n):
         img = fry(img)
 
-    print("Saving temporarily to disk for uploading...")
+    # print("Saving temporarily to disk for uploading...")
     img.save('./images/tmp.jpg')
 
 
@@ -69,7 +69,7 @@ def find_chars(img):
 
 # find list of eye coordinates in image
 def find_eyes(img):
-    print("Searching for eyes...")
+    # print("Searching for eyes...")
     coords = []
     face_cascade = cv2.CascadeClassifier('./classifiers/haarcascade_frontalface_default.xml')
     eye_cascade = cv2.CascadeClassifier('./classifiers/haarcascade_eye.xml')
@@ -80,10 +80,11 @@ def find_eyes(img):
         roi_gray = gray[y:y + h, x:x + w]
         eyes = eye_cascade.detectMultiScale(roi_gray)
         for (ex, ey, ew, eh) in eyes:
-            print("\tFound eye at ({0}, {1})".format(x+ex+ew/2, y+ey+eh/2))
+            # print("\tFound eye at ({0}, {1})".format(x+ex+ew/2, y+ey+eh/2))
             coords.append((x+ex+ew/2, y+ey+eh/2))
     if len(coords) == 0:
-        print("\tNo eyes found.")
+        # print("\tNo eyes found.")
+        pass
     return coords
 
 
@@ -108,10 +109,10 @@ def add_flares(img, coords):
     tmp = img.copy()
 
     # add flares to temporary copy
-    print("Adding lens flares...")
+    # print("Adding lens flares...")
     flare = Image.open('./images/lens_flare.png')
     for coord in coords:
-        print("\tFlare added to ({0}, {1})".format(coord[0], coord[1]))
+        # print("\tFlare added to ({0}, {1})".format(coord[0], coord[1]))
         tmp.paste(flare, (int(coord[0]-flare.size[0]/2), int(coord[1]-flare.size[1]/2)), flare)
 
     return tmp
@@ -121,11 +122,11 @@ def add_b_emojis(img, coords):
     # create a temporary copy if img
     tmp = img.copy()
 
-    print("Adding B emojis...")
+    # print("Adding B emojis...")
     b = Image.open('./images/B.png')
     for coord in coords:
         if np.random.random(1)[0] < 0.1:
-            print("\tB added to ({0}, {1})".format(coord[0], coord[1]))
+            # print("\tB added to ({0}, {1})".format(coord[0], coord[1]))
             resized = b.copy()
             resized.thumbnail((coord[2], coord[3]), Image.ANTIALIAS)
             tmp.paste(resized, (int(coord[0]), int(coord[1])), resized)
@@ -137,12 +138,12 @@ def add_laughing_emojis(img, max):
     # create a temporary copy if img
     tmp = img.copy()
 
-    print("Adding laughing emojis...")
+    # print("Adding laughing emojis...")
     emoji = Image.open('./images/smilelaugh.png')
     for i in range(int(np.random.random(1)[0]*max)):
         # add laughing emoji to random coordinates
         coord = np.random.random(2)*np.array([img.width, img.height])
-        print("\tLaughing emoji added to ({0}, {1})".format(int(coord[0]), int(coord[1])))
+        # print("\tLaughing emoji added to ({0}, {1})".format(int(coord[0]), int(coord[1])))
         resized = emoji.copy()
         size = int((img.width/10)*(np.random.random(1)[0]+1))
         resized.thumbnail((size, size), Image.ANTIALIAS)
@@ -160,12 +161,16 @@ def add_laughing_emojis(img, max):
 #   h   = height of the bulge
 #   ior = index of refraction of the bulge material
 def bulge(img, f, r, a, h, ior):
-    print("Creating a bulge at ({0}, {1}) with radius {2}... ".format(f[0], f[1], r))
+    # print("Creating a bulge at ({0}, {1}) with radius {2}... ".format(f[0], f[1], r))
 
     # load image to numpy array
     width = img.width
     height = img.height
     img_data = np.array(img)
+
+    # ignore too large images
+    if width*height > 3000*3000:
+        return img
 
     # determine range of pixels to be checked (square enclosing bulge), max exclusive
     x_min = int(f[0] - r)

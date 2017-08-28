@@ -1,0 +1,4 @@
+{
+    "max_comments": 300,
+    "check_delay": 60
+}

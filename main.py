@@ -1,44 +1,81 @@
 import praw
 import praw.exceptions
+import prawcore.exceptions
 import config
 import time
 import re
 import helpers
-from sys import stdout
+import settings
+import threading
 from frying import fry_url
 
 
-def main():
-    # list of subreddits to be continuously tracked
-    subreddits = ['comedycemetery', 'deepfriedmemes', 'me_irl',
-                  'meirl', 'memes', 'dankmemes', 'nukedmemes',
-                  'whothefuckup', 'ComedyNecrophilia']
+# TODO: Improve command line output
 
-    
+
+def main():
+    # list of subreddits to be tracked without username mention
+    subreddits = ['comedycemetery', 'memes', 'DeepFriedMemes',
+                  'nukedmemes', 'ComedyNecrophilia']
+
     # login to reddit and enter main loop
     reddit = login()
     sub = reddit.subreddit('+'.join(subreddits))
     while True:
+        # load settings
+        settings_dict = settings.loadSettings('./settings.txt')
+
         # check and fry username mentions
         check_mentions(reddit)
-        
-        # get comments from subreddits
-        comments = list(sub.comments())
 
-        # check for frying requests
+        # check and fry comments
+        # get comments from subreddits
+        try:
+            comments = list(sub.comments(limit=settings_dict['max_comments']))
+        except Exception as e:
+            print(str(e))
+            continue
+
         for comment in comments:
-            check(comment)
+            thread = threading.Thread(target=check, args=[comment])
+            thread.start()
+
+        # All comments processed, wait for some time before rechecking
+        time.sleep(settings_dict['check_delay'])
+
 
 def check_mentions(reddit):
-    mentions = list(reddit.inbox.mentions())
+    # try to get username mentions
+    try:
+        mentions = list(reddit.inbox.mentions(limit=10))
+    except Exception as e:
+        print(str(e))
+        return
+
+    # check mentions for requests
     for comment in mentions:
-        check(comment)
+        thread = threading.Thread(target=check, args=[comment])
+        thread.start()
+
+
+# verify that comment hasn't been changed
+def final_check(comment):
+    text = helpers.remove_specials(comment.body)
+    if 'morefrying' in text:
+        return True
+    elif 'morenuking' in text:
+        return True
+    else:
+        return False
+
 
 # check comment for frying request
 def check(comment):
+    # string for holding the message a thread prints when it finishes
+    output = ''
+
     # Ignore too long comments
-    if len(comment.body) > 50:
-        # print("Comment too long, skipping.")
+    if len(comment.body) > 500:
         return
 
     # remove special characters and change to lower case
@@ -46,28 +83,50 @@ def check(comment):
 
     # determine type of request
     if 'morefrying' in text:
-        message = "Post needs more frying!"
+        message = "Post needs more frying!\n"
         n = 1
     elif 'morenuking' in text:
-        message = "Post needs more nuking!"
+        message = "Post needs more nuking!\n"
         n = 5
     else:
         # print("No frying requested.")
         return
 
-    # verfify that the bot has not already replied to this comment
-    try:
-        comment.refresh()  # fetches comment's replies
-        comment.replies.replace_more(limit=0)
-    except praw.exceptions.ClientException as e:
-        print(str(e))
+    # verify that the post is quality is adequate to reduce spam
+    output += "Checking post quality:\n"
+    ratio = comment.submission.upvote_ratio
+    ups = comment.submission.ups
+    output += "\tRatio of upvotes to downvotes: {0}\n".format(ratio)
+    if ratio < 0.70:
+        output += "\t\tRatio too low. Skipping post.\n"
+        print(output)
         return
+    output += "\tNumber of upvotes: {0}\n".format(ups)
+    if ups < 5:
+        output += "\t\tToo few upvotes. Skipping post.\n"
+        print(output)
+        return
+    output += "\tPost is OK.\n"
+
+    # fetch comment replies
+    try:
+        comment.refresh()
+    except AssertionError:
+        # For some reason refresh() always raises AssertionError.
+        # It still manages to fetch the comments on the call which raises the error so the error is ignored.
+        pass
+    comment.replies.replace_more(limit=0)
+
+    # verify that the request hasn't been fulfilled
     for reply in comment.replies:
         if reply.author.name == 'DeepFryBot':
-            print("Frying request already fulfilled.")
+            output += "Frying request already fulfilled.\n"
+            print(output)
             return
 
-    print(message)
+    # display the request type
+    output += message
+
     # check if the comment is top level or a reply
     if comment.is_root:
         # comment is top level comment
@@ -82,20 +141,34 @@ def check(comment):
             # try to reply
             for i in range(5):
                 try:
-                    # upload image and wait a while
+                    # verify that the comment requesting frying hasn't been changed
+                    if final_check(comment) is not True:
+                        print(output)
+                        return
+
+                    # reply to request
                     comment.reply(helpers.gen_reply([uploaded_image_url]))
-                    time.sleep(60)
+                    print(output)
                     return
-                except praw.exceptions.APIException as e:
-                    # on failure print error and wait one second before retry
-                    print(str(e))
-                    time.sleep(1)
+                except prawcore.exceptions.Forbidden:
+                    # If response is 'forbidden' the bot is probably banned so there is no sense to retry.
+                    output += "Commenting forbidden. Bot probably banned from /r/{0}\n".format(comment.subreddit)
+                    print(output)
+                    return
+                except Exception as e:
+                    # on failure print error and wait some time before retrying
+                    output += str(e)
+                    time.sleep(5)
         else:
             # failed to upload image
-            print("Failed to upload image")
+            output += "Failed to upload image\n"
+            print(output)
             return
     else:
         # comment is a reply
+
+        # disable chained frying
+        return
 
         # find all image urls in parent comment using regex
         urls = re.findall('(https?:\/\/.*\.(?:png|jpg))', comment.parent().body)
@@ -121,8 +194,10 @@ def check(comment):
         # try to reply
         for i in range(5):
             try:
+                if final_check(comment) is not True:
+                        return
                 comment.reply(helpers.gen_reply(fried_urls))
-                time.sleep(60)
+                time.sleep(30)
                 return
             except praw.exceptions.APIException as e:
                 print(str(e))

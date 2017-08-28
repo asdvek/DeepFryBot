@@ -51,21 +51,26 @@ def download_to_ram(url):
         img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
     except OSError as e:
         print("URL is not an image, skipping.\n")
+    except UnboundLocalError as e:
+        print(str(e))
     return img
 
 
 # uploads temporary image to imgur and returns the url. On failure returns None.
 def upload_to_imgur():
-    if os.path.isfile('./images/tmp.jpg'):
-        client_id = config.imgur_client_id
-        path = os.path.abspath('./images/tmp.jpg')
-        im = pyimgur.Imgur(client_id)
+    try:
+        if os.path.isfile('./images/tmp.jpg'):
+            client_id = config.imgur_client_id
+            path = os.path.abspath('./images/tmp.jpg')
+            im = pyimgur.Imgur(client_id)
 
-        uploaded_image = im.upload_image(path, title="Deep fried by /u/DeepFryBot")
-        os.remove('./images/tmp.jpg')
-        return uploaded_image.link
-    else:
-        return None
+            uploaded_image = im.upload_image(path, title="Deep fried by /u/DeepFryBot")
+            os.remove('./images/tmp.jpg')
+            return uploaded_image.link
+        else:
+            return None
+    except Exception as e:
+        print(str(e))
 
 
 # remove special characters from string
