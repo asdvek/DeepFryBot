@@ -16,7 +16,7 @@ from frying import fry_url
 def main():
     # list of subreddits to be tracked without username mention
     subreddits = ['comedycemetery', 'memes', 'DeepFriedMemes',
-                  'nukedmemes', 'ComedyNecrophilia']
+                  'nukedmemes', 'ComedyNecrophilia', 'dankmemes']
 
     # login to reddit and enter main loop
     reddit = login()
@@ -37,8 +37,9 @@ def main():
             continue
 
         for comment in comments:
-            thread = threading.Thread(target=check, args=[comment])
-            thread.start()
+            # thread = threading.Thread(target=check, args=[comment])
+            # thread.start()
+            check(comment)
 
         # All comments processed, wait for some time before rechecking
         time.sleep(settings_dict['check_delay'])
@@ -54,8 +55,9 @@ def check_mentions(reddit):
 
     # check mentions for requests
     for comment in mentions:
-        thread = threading.Thread(target=check, args=[comment])
-        thread.start()
+        # thread = threading.Thread(target=check, args=[comment])
+        # thread.start()
+        check(comment)
 
 
 # verify that comment hasn't been changed
@@ -111,11 +113,10 @@ def check(comment):
     # fetch comment replies
     try:
         comment.refresh()
-    except AssertionError:
-        # For some reason refresh() always raises AssertionError.
-        # It still manages to fetch the comments on the call which raises the error so the error is ignored.
-        pass
-    comment.replies.replace_more(limit=0)
+        comment.replies.replace_more(limit=0)
+    except Exception as e:
+        print("Failed to get comment replies.")
+        return
 
     # verify that the request hasn't been fulfilled
     for reply in comment.replies:
