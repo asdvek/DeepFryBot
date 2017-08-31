@@ -94,22 +94,6 @@ def check(comment):
         # print("No frying requested.")
         return
 
-    # verify that the post is quality is adequate to reduce spam
-    output += "Checking post quality:\n"
-    ratio = comment.submission.upvote_ratio
-    ups = comment.submission.ups
-    output += "\tRatio of upvotes to downvotes: {0}\n".format(ratio)
-    if ratio < 0.70:
-        output += "\t\tRatio too low. Skipping post.\n"
-        print(output)
-        return
-    output += "\tNumber of upvotes: {0}\n".format(ups)
-    if ups < 5:
-        output += "\t\tToo few upvotes. Skipping post.\n"
-        print(output)
-        return
-    output += "\tPost is OK.\n"
-
     # fetch comment replies
     try:
         comment.refresh()
@@ -124,6 +108,27 @@ def check(comment):
             output += "Frying request already fulfilled.\n"
             print(output)
             return
+
+    # verify that the post is quality is adequate to reduce spam
+    output += "Checking post quality:\n"
+    try:
+        ratio = comment.submission.upvote_ratio
+        ups = comment.submission.ups
+    except Exception as e:
+        output += "\t\tFailed to check post quality."
+        print(output)
+        return
+    output += "\tRatio of upvotes to downvotes: {0}\n".format(ratio)
+    if ratio < 0.70:
+        output += "\t\tRatio too low. Skipping post.\n"
+        print(output)
+        return
+    output += "\tNumber of upvotes: {0}\n".format(ups)
+    if ups < 5:
+        output += "\t\tToo few upvotes. Skipping post.\n"
+        print(output)
+        return
+    output += "\tPost is OK.\n"
 
     # display the request type
     output += message

@@ -44,6 +44,8 @@ def download_to_ram(url):
             break
         except urllib.error.HTTPError:
             time.sleep(1)
+        except urllib.error.URLError:
+            time.sleep(1)
     # save retrieved data to PIL image
     img = None
     try:
